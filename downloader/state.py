@@ -4,7 +4,6 @@ from queue import Queue
 
 from downloader.config import config
 from downloader.enums import StatusInQueue, Status, TransferDirection, TransferProtocol
-from downloader.exceptions import PathNotInRootException
 
 
 class File:
@@ -46,23 +45,17 @@ class Task:
         raise
 
     @staticmethod
-    def check_if_destination_exists)
+    def check_if_destination_exists():
+        pass
 
 
     def get_files_for_task(self) -> list[File]:
-        # find all files in path
-        # if upload
-        if self.direction is TransferDirection.DOWNLOAD:
-
-
-        # if download
+        pass
 
 
 class AppState:
     def __init__(self):
-        self.tasks_queue = Queue(
-            maxsize=config['transfer_settings']['tasks_limit']
-        )
+        self.tasks_queue = Queue()
         self.files_queue = Queue(
             maxsize=config['transfer_settings']['files_limit']
         )

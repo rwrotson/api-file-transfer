@@ -1,6 +1,7 @@
+from dataclasses import dataclass
 from uuid import UUID
 from pathlib import Path
-from pydantic import BaseModel, ValidationError, validator, root_validator
+from pydantic import BaseModel, ValidationError, validator
 
 from downloader.enums import TransferProtocol, AuthMode, Status
 
@@ -45,7 +46,8 @@ class InProgressData(BaseModel):
     total: int
 
 
-class ErrorData(BaseModel):
+@dataclass
+class ErrorData:
     message: str | None
 
 
