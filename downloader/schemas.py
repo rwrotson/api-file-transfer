@@ -6,7 +6,8 @@ from pydantic import BaseModel, ValidationError, validator
 from downloader.enums import TransferProtocol, AuthMode, Status
 
 
-class Auth(BaseModel):
+@dataclass
+class Auth:
     mode: str
     data: dict[str, str]
 
@@ -26,7 +27,7 @@ class TransferQuery(BaseModel):
 
     @classmethod
     @validator('auth')
-    def auth_mode_must_be_correct(cls, auth):
+    def must_be_in_correct_format(cls, auth):
         if auth.get('mode') is None:
             raise ValidationError('Auth must contain mode field')
         if auth.get('data') is None:

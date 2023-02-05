@@ -8,6 +8,10 @@ class PathNotInRootException(Exception):
     pass
 
 
+class TransferNotAllowedException(Exception):
+    """Raised when the transfer is not possible"""
+
+
 class AuthentificationException(Exception):
     """Raised when authentification token is not correct"""
     pass

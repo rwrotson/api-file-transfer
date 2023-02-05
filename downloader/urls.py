@@ -3,7 +3,7 @@ from pathlib import Path
 from fastapi import FastAPI
 
 from downloader.enums import TransferDirection, TransferProtocol
-from downloader.schemas import TransferQuery, StatusQuery
+from downloader.schemas import TransferQuery, StatusQuery, Auth
 from downloader.state import Task
 
 app = FastAPI()
@@ -15,8 +15,9 @@ def upload_files(query: TransferQuery):
         new_task = Task(
             direction=TransferDirection.UPLOAD,
             protocol=TransferProtocol(query.protocol),
-            source=Path(query.source),
-            destination=Path(query.destination)
+            auth=Auth(**query.auth),
+            local_path=Path(query.source),
+            remote_path=Path(query.destination)
         )
     except Exception:
         return 'Error'
@@ -26,7 +27,18 @@ def upload_files(query: TransferQuery):
 
 @app.post('/download')
 def download_files(query: TransferQuery):
-    pass
+    try:
+        new_task = Task(
+            direction=TransferDirection.UPLOAD,
+            protocol=TransferProtocol(query.protocol),
+            auth=Auth(**query.auth),
+            local_path=Path(query.source),
+            remote_path=Path(query.destination)
+        )
+    except Exception:
+        return 'Error'
+    ...
+    return Task.uid
 
 
 @app.post('/cancel')
