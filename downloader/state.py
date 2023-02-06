@@ -131,6 +131,7 @@ class AppState:
     def __init__(self):
         self._tasks_queue = Queue()
         self._completed_tasks: list[Task] = []
+
         self._files_queue = Queue(
             maxsize=config['transfer_settings']['files_limit']
         )
