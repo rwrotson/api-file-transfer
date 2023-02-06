@@ -9,7 +9,13 @@ class PathNotInRootException(Exception):
 
 
 class TransferNotAllowedException(Exception):
-    """Raised when the transfer is not possible"""
+    """Raised when the transfer is not possible by design"""
+    pass
+
+
+class RemotePathNotAvailable(Exception):
+    """Raised when the remote endpoint is not available"""
+    pass
 
 
 class AuthentificationException(Exception):

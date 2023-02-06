@@ -8,7 +8,7 @@ from downloader.enums import TransferProtocol, AuthMode, Status
 
 @dataclass
 class Auth:
-    mode: str
+    mode: AuthMode
     data: dict[str, str]
 
 

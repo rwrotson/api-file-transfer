@@ -11,11 +11,6 @@ class TransferDirection(StrEnum, metaclass=EnumWithContains):
     DOWNLOAD = auto()
 
 
-# 'upload' -> TransferDirection.UPLOAD
-a = TransferDirection('upload')
-print(type(a), a)
-
-
 class TransferProtocol(StrEnum):
     HTTP = auto()
     S3 = auto()
@@ -25,11 +20,6 @@ class AuthMode(StrEnum):
     BASIC = auto()
     TOKEN = auto()
     S3 = auto()
-
-
-class StatusInQueue(StrEnum):
-    QUEUED = auto()
-    DOWNLOADING = auto()
 
 
 class Status(StrEnum):

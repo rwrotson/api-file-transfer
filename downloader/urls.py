@@ -1,51 +1,52 @@
 from uuid import UUID
 from pathlib import Path
+from pydantic import AnyHttpUrl
 from fastapi import FastAPI
 
 from downloader.enums import TransferDirection, TransferProtocol
 from downloader.schemas import TransferQuery, StatusQuery, Auth
-from downloader.state import Task
+from downloader.state import UploadTask, DownloadTask, get_app_state
 
 app = FastAPI()
 
 
 @app.post('/upload')
-def upload_files(query: TransferQuery):
+async def upload_files(query: TransferQuery):
     try:
-        new_task = Task(
-            direction=TransferDirection.UPLOAD,
+        new_task = UploadTask(
             protocol=TransferProtocol(query.protocol),
             auth=Auth(**query.auth),
             local_path=Path(query.source),
-            remote_path=Path(query.destination)
+            remote_path=AnyHttpUrl(query.destination)
         )
-    except Exception:
-        return 'Error'
-    ...
-    return Task.uid
+    except Exception as e:
+        return  # e.to_json
+    app_state = get_app_state()
+    app_state.add_task(new_task)
+    return new_task.uid
 
 
 @app.post('/download')
-def download_files(query: TransferQuery):
+async def download_files(query: TransferQuery):
     try:
-        new_task = Task(
-            direction=TransferDirection.UPLOAD,
+        new_task = DownloadTask(
             protocol=TransferProtocol(query.protocol),
             auth=Auth(**query.auth),
             local_path=Path(query.source),
-            remote_path=Path(query.destination)
+            remote_path=AnyHttpUrl(query.destination)
         )
     except Exception:
         return 'Error'
-    ...
-    return Task.uid
+    app_state = get_app_state()
+    app_state.add_task(new_task)
+    return new_task.uid
 
 
 @app.post('/cancel')
-def cancel_transfer(uid: UUID):
+async def cancel_transfer(uid: UUID):
     pass
 
 
 @app.get('/status')
-def get_status(query: StatusQuery):
+async def get_status(query: StatusQuery):
     pass

@@ -1,15 +1,14 @@
 from pathlib import Path
+from pydantic import AnyHttpUrl
 from uuid import uuid4, UUID
 from queue import Queue
 from dataclasses import dataclass
 from abc import ABC, abstractmethod
 
+from downloader.transfer import HTTPTransfer, S3Transfer
 from downloader.schemas import Auth
 from downloader.config import config
-from downloader.enums import (
-    StatusInQueue, Status,
-    TransferDirection, TransferProtocol
-)
+from downloader.enums import (Status, TransferProtocol)
 from downloader.exceptions import (
     PathNotFoundException, PathNotInRootException,
     TransferNotAllowedException
@@ -18,68 +17,15 @@ from downloader.exceptions import (
 
 @dataclass
 class File:
-    direction: TransferDirection
-    protocol: TransferProtocol
     local_path: Path
-    remote_path: Path
+    remote_path: AnyHttpUrl
     status: Status = Status.QUEUED
 
 
-class Task:
-    def __init__(self, direction: TransferDirection,
-                 protocol: TransferProtocol, auth: Auth,
-                 local_path: Path, remote_path: Path) -> None:
-
-        self.validate(direction, protocol, local_path, remote_path)
-
-        self.direction = direction
-        self.protocol = protocol
-        self.auth = auth
-        self.local_path = local_path
-        self.remote_path = remote_path
-        self.uid: UUID = uuid4()
-
-        self.status: StatusInQueue = StatusInQueue.QUEUED
-        self.files: list[File] = self.get_files_for_task()
-
-    def validate(self, direction: TransferDirection,
-                 protocol: TransferProtocol, auth: Auth,
-                 local_path: Path, remote_path: Path) -> None:
-        self.check_if_local_path_exists(local_path)
-        self.check_if_local_path_in_root(local_path)
-        self.check_if_transfer_is_allowable(direction, protocol)
-        self.check_if_remote_path_available(protocol, auth, remote_path)
-
-    @staticmethod
-    def check_if_local_path_exists(local_path: Path) -> None:
-        if not local_path.exists():
-            raise PathNotFoundException('The local path does not exists')
-
-    @staticmethod
-    def check_if_local_path_in_root(local_path: Path) -> None:
-        if local_path not in Path(config['paths']['root']):
-            raise PathNotInRootException('The local path is not in root')
-
-    @staticmethod
-    def check_if_transfer_is_allowable(direction: TransferDirection,
-                                       protocol: TransferProtocol) -> None:
-        if (direction is TransferDirection.UPLOAD and
-                protocol is TransferProtocol.HTTP):
-            raise TransferNotAllowedException('Can not upload via HTTP')
-
-    @staticmethod
-    def check_if_remote_path_available(protocol: TransferProtocol,
-                                       auth: Auth, remote_path: Path) -> None:
-        pass
-
-    def get_files_for_task(self) -> list[File]:
-        pass
-
-
-class TaskAbstract(ABC):
+class Task(ABC):
     def __init__(self, protocol: TransferProtocol, auth: Auth,
-                 local_path: Path, remote_path: Path) -> None:
-        self.validate(protocol, auth, local_path, remote_path)
+                 local_path: Path, remote_path: AnyHttpUrl) -> None:
+        self.validate(protocol, auth, local_path, remote_path) # separate class?
 
         self._protocol = protocol
         self._auth = auth
@@ -87,12 +33,27 @@ class TaskAbstract(ABC):
         self._remote_path = remote_path
         self._uid: UUID = uuid4()
 
-        self._status: StatusInQueue = StatusInQueue.QUEUED
+        self._status: Status = Status.QUEUED
         self._files: list[File] = self.get_files_for_task()
+
+    @property
+    def status(self):
+        return self._status
+
+    @status.setter
+    def status(self, value):
+        if value not in Status:
+            raise ValueError('Status must be: queued, downloading, \
+                                 interrupted or complete')
+        self._status = value
+
+    @property
+    def uid(self):
+        return self._uid
 
     @abstractmethod
     def validate(self, protocol: TransferProtocol, auth: Auth,
-                 local_path: Path, remote_path: Path) -> None:
+                 local_path: Path, remote_path: AnyHttpUrl) -> None:
         pass
 
     @staticmethod
@@ -106,50 +67,47 @@ class TaskAbstract(ABC):
             raise PathNotInRootException('The local path is not in root')
 
     @staticmethod
-    def check_if_remote_path_available(protocol: TransferProtocol,
-                                       auth: Auth, remote_path: Path) -> None:
-        pass
+    def check_if_remote_path_available(protocol: TransferProtocol, auth: Auth,
+                                       remote_path: AnyHttpUrl) -> None:
+        if protocol is TransferProtocol.HTTP:
+            HTTPTransfer.check_if_remote_available(remote_path, auth)
+        else:
+            S3Transfer.check_if_remote_available(remote_path, auth)
 
     @abstractmethod
     def get_files_for_task(self) -> list[File]:
         pass
 
-    @abstractmethod
-    def initiate(self):
-        pass
 
-    @abstractmethod
-    def cancel(self):
-        pass
-
-    @abstractmethod
-    def get_status(self):
-        pass
-
-
-class DownloadTask(TaskAbstract):
+class DownloadTask(Task):
     def __init__(self, protocol: TransferProtocol, auth: Auth,
-                 local_path: Path, remote_path: Path) -> None:
-        super().__init__(protocol, auth, local_path, remote_path)
+                 local_path: Path, remote_path: AnyHttpUrl) -> None:
+        super().__init__(protocol, auth, local_path, remote_path) # ?
 
     def validate(self, protocol: TransferProtocol, auth: Auth,
-                 local_path: Path, remote_path: Path) -> None:
+                 local_path: Path, remote_path: AnyHttpUrl) -> None:
         self.check_if_local_path_exists(local_path)
         self.check_if_local_path_in_root(local_path)
         self.check_if_remote_path_available(protocol, auth, remote_path)
 
     def get_files_for_task(self) -> list[File]:
-        pass
+        glob = self._local_path.glob('**/*')
+        local_paths = [path for path in glob if path.is_file()]
+        remote_paths = [AnyHttpUrl(self._remote_path + '/'
+                                   + str(path.relative_to(self._local_path)))
+                        for path in local_paths]
+        return [File(local_path, remote_path)
+                for local_path, remote_path
+                in zip(local_paths, remote_paths)]
 
 
-class UploadTask(TaskAbstract):
+class UploadTask(Task):
     def __init__(self, protocol: TransferProtocol, auth: Auth,
-                 local_path: Path, remote_path: Path) -> None:
-        self.validate(protocol, auth, local_path, remote_path)
+                 local_path: Path, remote_path: AnyHttpUrl) -> None:
         super().__init__(protocol, auth, local_path, remote_path)
 
     def validate(self, protocol: TransferProtocol, auth: Auth,
-                 local_path: Path, remote_path: Path) -> None:
+                 local_path: Path, remote_path: AnyHttpUrl) -> None:
         self.check_if_local_path_exists(local_path)
         self.check_if_local_path_in_root(local_path)
         self.check_if_transfer_is_allowable(protocol)
@@ -161,14 +119,42 @@ class UploadTask(TaskAbstract):
             raise TransferNotAllowedException('Can not upload via HTTP')
 
     def get_files_for_task(self) -> list[File]:
-        pass
+        if self._protocol is TransferProtocol.HTTP:
+            return [File(self._local_path, self._remote_path)]
+
+        if self._protocol is TransferProtocol.S3:
+            ...
+            return []
 
 
 class AppState:
     def __init__(self):
-        self.tasks_queue = Queue()
-        self.files_queue = Queue(
+        self._tasks_queue = Queue()
+        self._completed_tasks: list[Task] = []
+        self._files_queue = Queue(
             maxsize=config['transfer_settings']['files_limit']
         )
-        self.completed_files: list[File] = []
-        self.stopped_files: list[File] = []
+        self._completed_files: list[File] = []
+        self._stopped_files: list[File] = []
+
+    def add_task(self, task: Task):
+        pass
+
+    def delete_task(self, uid: UUID):
+        # ?
+        pass
+
+    def add_file_to_queue(self, file: File):
+        pass
+
+    def add_file_to_completed_file(self, file: File):
+        pass
+
+    def add_file_to_stopped_file(self, file: File):
+        pass
+
+
+def get_app_state() -> AppState:
+    if not hasattr(get_app_state, 'instances'):
+        get_app_state._instances = dict()
+    ...
