@@ -17,7 +17,7 @@ async def upload_files(query: TransferQuery):
             protocol=TransferProtocol(query.protocol),
             auth=Auth(**query.auth),
             local_path=Path(query.source),
-            remote_path=AnyHttpUrl(query.destination)
+            remote_path=query.destination
         )
     except Exception as e:
         return  # e.to_json

@@ -1,5 +1,4 @@
 from pathlib import Path
-from pydantic import AnyHttpUrl
 from uuid import uuid4, UUID
 from queue import Queue
 from dataclasses import dataclass
@@ -18,13 +17,14 @@ from downloader.exceptions import (
 @dataclass
 class File:
     local_path: Path
-    remote_path: AnyHttpUrl
+    remote_path: str
+    auth: Auth = None
     status: Status = Status.QUEUED
 
 
 class Task(ABC):
     def __init__(self, protocol: TransferProtocol, auth: Auth,
-                 local_path: Path, remote_path: AnyHttpUrl) -> None:
+                 local_path: Path, remote_path: str) -> None:
         self.validate(protocol, auth, local_path, remote_path) # separate class?
 
         self._protocol = protocol
@@ -53,7 +53,7 @@ class Task(ABC):
 
     @abstractmethod
     def validate(self, protocol: TransferProtocol, auth: Auth,
-                 local_path: Path, remote_path: AnyHttpUrl) -> None:
+                 local_path: Path, remote_path: str) -> None:
         pass
 
     @staticmethod
@@ -68,7 +68,7 @@ class Task(ABC):
 
     @staticmethod
     def check_if_remote_path_available(protocol: TransferProtocol, auth: Auth,
-                                       remote_path: AnyHttpUrl) -> None:
+                                       remote_path: str) -> None:
         if protocol is TransferProtocol.HTTP:
             HTTPTransfer.check_if_remote_available(remote_path, auth)
         else:
@@ -81,11 +81,11 @@ class Task(ABC):
 
 class DownloadTask(Task):
     def __init__(self, protocol: TransferProtocol, auth: Auth,
-                 local_path: Path, remote_path: AnyHttpUrl) -> None:
-        super().__init__(protocol, auth, local_path, remote_path) # ?
+                 local_path: Path, remote_path: str) -> None:
+        super().__init__(protocol, auth, local_path, remote_path)
 
     def validate(self, protocol: TransferProtocol, auth: Auth,
-                 local_path: Path, remote_path: AnyHttpUrl) -> None:
+                 local_path: Path, remote_path: str) -> None:
         self.check_if_local_path_exists(local_path)
         self.check_if_local_path_in_root(local_path)
         self.check_if_remote_path_available(protocol, auth, remote_path)
@@ -93,8 +93,8 @@ class DownloadTask(Task):
     def get_files_for_task(self) -> list[File]:
         glob = self._local_path.glob('**/*')
         local_paths = [path for path in glob if path.is_file()]
-        remote_paths = [AnyHttpUrl(self._remote_path + '/'
-                                   + str(path.relative_to(self._local_path)))
+        remote_paths = [self._remote_path + '/' +
+                        str(path.relative_to(self._local_path))
                         for path in local_paths]
         return [File(local_path, remote_path)
                 for local_path, remote_path
@@ -103,11 +103,11 @@ class DownloadTask(Task):
 
 class UploadTask(Task):
     def __init__(self, protocol: TransferProtocol, auth: Auth,
-                 local_path: Path, remote_path: AnyHttpUrl) -> None:
+                 local_path: Path, remote_path: str) -> None:
         super().__init__(protocol, auth, local_path, remote_path)
 
     def validate(self, protocol: TransferProtocol, auth: Auth,
-                 local_path: Path, remote_path: AnyHttpUrl) -> None:
+                 local_path: Path, remote_path: str) -> None:
         self.check_if_local_path_exists(local_path)
         self.check_if_local_path_in_root(local_path)
         self.check_if_transfer_is_allowable(protocol)
@@ -153,6 +153,9 @@ class AppState:
 
     def add_file_to_stopped_file(self, file: File):
         pass
+
+    def is_file_already_added(self, file: File):
+        if
 
 
 def get_app_state() -> AppState:
