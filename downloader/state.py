@@ -1,31 +1,22 @@
 from pathlib import Path
 from uuid import uuid4, UUID
 from queue import Queue
-from dataclasses import dataclass
 from abc import ABC, abstractmethod
 
-from downloader.transfer import HTTPTransfer, S3Transfer
-from downloader.schemas import Auth
+from downloader.transfer import FileTransfer, HTTPTransfer, S3Transfer
+from downloader.auth import Auth
 from downloader.config import config
-from downloader.enums import (Status, TransferProtocol)
+from downloader.enums import Status, TransferProtocol
 from downloader.exceptions import (
     PathNotFoundException, PathNotInRootException,
     TransferNotAllowedException
 )
 
 
-@dataclass
-class File:
-    local_path: Path
-    remote_path: str
-    auth: Auth = None
-    status: Status = Status.QUEUED
-
-
 class Task(ABC):
     def __init__(self, protocol: TransferProtocol, auth: Auth,
                  local_path: Path, remote_path: str) -> None:
-        self.validate(protocol, auth, local_path, remote_path) # separate class?
+        self.validate(protocol, auth, local_path, remote_path)
 
         self._protocol = protocol
         self._auth = auth
@@ -34,7 +25,7 @@ class Task(ABC):
         self._uid: UUID = uuid4()
 
         self._status: Status = Status.QUEUED
-        self._files: list[File] = self.get_files_for_task()
+        self._files: list[FileTransfer] = self.get_files_for_task()
 
     @property
     def status(self):
@@ -44,7 +35,7 @@ class Task(ABC):
     def status(self, value):
         if value not in Status:
             raise ValueError('Status must be: queued, downloading, \
-                                 interrupted or complete')
+                             interrupted or complete')
         self._status = value
 
     @property
@@ -75,7 +66,7 @@ class Task(ABC):
             S3Transfer.check_if_remote_available(remote_path, auth)
 
     @abstractmethod
-    def get_files_for_task(self) -> list[File]:
+    def get_files_for_task(self) -> list[FileTransfer]:
         pass
 
 
@@ -90,13 +81,13 @@ class DownloadTask(Task):
         self.check_if_local_path_in_root(local_path)
         self.check_if_remote_path_available(protocol, auth, remote_path)
 
-    def get_files_for_task(self) -> list[File]:
+    def get_files_for_task(self) -> list[FileTransfer]:
         glob = self._local_path.glob('**/*')
         local_paths = [path for path in glob if path.is_file()]
         remote_paths = [self._remote_path + '/' +
                         str(path.relative_to(self._local_path))
                         for path in local_paths]
-        return [File(local_path, remote_path)
+        return [FileTransfer(local_path, remote_path)
                 for local_path, remote_path
                 in zip(local_paths, remote_paths)]
 
@@ -118,10 +109,9 @@ class UploadTask(Task):
         if protocol is TransferProtocol.HTTP:
             raise TransferNotAllowedException('Can not upload via HTTP')
 
-    def get_files_for_task(self) -> list[File]:
+    def get_files_for_task(self) -> list[FileTransfer]:
         if self._protocol is TransferProtocol.HTTP:
-            return [File(self._local_path, self._remote_path)]
-
+            return [FileTransfer(self._local_path, self._remote_path)]
         if self._protocol is TransferProtocol.S3:
             ...
             return []
@@ -135,30 +125,35 @@ class AppState:
         self._files_queue = Queue(
             maxsize=config['transfer_settings']['files_limit']
         )
-        self._completed_files: list[File] = []
-        self._stopped_files: list[File] = []
+        self._completed_files: list[FileTransfer] = []
+        self._stopped_files: list[FileTransfer] = []
 
     def add_task(self, task: Task):
         pass
 
-    def delete_task(self, uid: UUID):
-        # ?
+    def cancel_task(self, uid: UUID):
         pass
 
-    def add_file_to_queue(self, file: File):
+    def get_task_status(self, uid: UUID):
         pass
 
-    def add_file_to_completed_file(self, file: File):
+    def get_file_status(self, uid: UUID, path: Path):
         pass
 
-    def add_file_to_stopped_file(self, file: File):
+    def add_file_to_queue(self, file: FileTransfer):
         pass
 
-    def is_file_already_added(self, file: File):
-        if
+    def add_file_to_completed_files(self, file: FileTransfer):
+        pass
+
+    def add_file_to_stopped_files(self, file: FileTransfer):
+        pass
+
+    def is_file_already_added(self, file: FileTransfer):
+        pass
 
 
 def get_app_state() -> AppState:
     if not hasattr(get_app_state, 'instances'):
         get_app_state._instances = dict()
-    ...
+    return

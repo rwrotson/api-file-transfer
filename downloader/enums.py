@@ -17,6 +17,7 @@ class TransferProtocol(StrEnum):
 
 
 class AuthMode(StrEnum):
+    NONE = auto()
     BASIC = auto()
     TOKEN = auto()
     S3 = auto()

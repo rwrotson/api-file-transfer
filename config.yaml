@@ -3,4 +3,4 @@ paths:
 transfer_settings:
     files_limit: 10
     speed_limit: 1000
-    chunk_size: 262144
+    chunk_size: 1048576

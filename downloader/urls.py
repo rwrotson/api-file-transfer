@@ -1,11 +1,14 @@
+from typing import Optional
 from uuid import UUID
 from pathlib import Path
 from pydantic import AnyHttpUrl
 from fastapi import FastAPI
 
-from downloader.enums import TransferDirection, TransferProtocol
-from downloader.schemas import TransferQuery, StatusQuery, Auth
+from downloader.enums import TransferProtocol
+from downloader.auth import Auth
+from downloader.schemas import TransferQuery
 from downloader.state import UploadTask, DownloadTask, get_app_state
+
 
 app = FastAPI()
 
@@ -44,9 +47,13 @@ async def download_files(query: TransferQuery):
 
 @app.post('/cancel')
 async def cancel_transfer(uid: UUID):
-    pass
+    app_state = get_app_state()
+    app_state.cancel_task(uid)
 
 
 @app.get('/status')
-async def get_status(query: StatusQuery):
-    pass
+async def get_status(uid: UUID, path: Optional[str]):
+    app_state = get_app_state()
+    if path is None:
+        return app_state.get_task_status()
+    return app_state.get_file_status()

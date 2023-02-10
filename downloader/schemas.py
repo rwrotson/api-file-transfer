@@ -1,15 +1,7 @@
 from dataclasses import dataclass
-from uuid import UUID
-from pathlib import Path
 from pydantic import BaseModel, ValidationError, validator
 
 from downloader.enums import TransferProtocol, AuthMode, Status
-
-
-@dataclass
-class Auth:
-    mode: AuthMode
-    data: dict[str, str]
 
 
 class TransferQuery(BaseModel):
@@ -37,14 +29,9 @@ class TransferQuery(BaseModel):
         return auth
 
 
-class StatusQuery(BaseModel):
-    uuid: UUID
-    path: Path
-
-
 class InProgressData(BaseModel):
-    done: int
-    total: int
+    size: int
+    completed: int
 
 
 @dataclass
