@@ -1,6 +1,6 @@
+import os
 from abc import ABC, abstractmethod
 from pathlib import Path
-import os
 import aiohttp
 import aiofiles
 
@@ -40,6 +40,18 @@ class FileTransfer(ABC):
     @abstractmethod
     async def upload(self) -> None:
         pass
+
+    @property
+    def local_path(self):
+        return self._local_path
+
+    @property
+    def remote_path(self):
+        return self._remote_path
+
+     def __eq__(self, other):
+         return (self.local_path == other.local_path and
+                 self.remote_path == other.remote_path)
 
 
 class HTTPTransfer(FileTransfer):
