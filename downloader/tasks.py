@@ -31,8 +31,7 @@ class Task(ABC):
     @status.setter
     def status(self, value):
         if value not in Status:
-            raise ValueError('Status must be: queued, downloading, \
-                             interrupted or complete')
+            raise ValueError('Status must be: queued, downloading, interrupted or complete')
         self._status = value
 
     @property
